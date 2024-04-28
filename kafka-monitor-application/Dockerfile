@@ -7,8 +7,8 @@ MAINTAINER jast
 # 设置工作目录，即进入容器后默认目录
 ENV MYPATH /home/es
 
-COPY target/kafka-monitor-application-${VERSION}-SNAPSHOT.jar /home/es/kafka-monitor/kafka-monitor-application.jar
-COPY target/kafka-monitor-application-${VERSION}-SNAPSHOT.jar /home/es/kafka-monitor
+COPY target/kafka-monitor-application-${VERSION}.jar /home/es/kafka-monitor/kafka-monitor-application.jar
+COPY target/kafka-monitor-application-${VERSION}.jar /home/es/kafka-monitor
 
 WORKDIR $MYPATH
 USER es
