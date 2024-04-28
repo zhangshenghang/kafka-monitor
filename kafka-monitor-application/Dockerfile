@@ -8,7 +8,7 @@ MAINTAINER jast
 ENV MYPATH /home/es
 
 COPY target/kafka-monitor-application-${VERSION}-SNAPSHOT.jar /home/es/kafka-monitor/kafka-monitor-application.jar
-COPY target/kafka-monitor-application-${VERSION}-SNAPSHOT.jar /home/es/kafka-moinitor
+COPY target/kafka-monitor-application-${VERSION}-SNAPSHOT.jar /home/es/kafka-monitor
 
 WORKDIR $MYPATH
 USER es
