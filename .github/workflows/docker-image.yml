@@ -3,7 +3,7 @@ name: Build and Deploy Kafka Monitor Application
 on:
   push:
     branches:
-      - main  # 适配你的主分支名
+      - master  # 适配你的主分支名
 
 jobs:
   build_and_push:
