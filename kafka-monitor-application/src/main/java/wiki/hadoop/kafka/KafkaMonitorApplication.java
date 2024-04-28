@@ -31,7 +31,7 @@ public class KafkaMonitorApplication implements Runnable {
 
     @Override
     public void run() {
-        log.info("开始统计");
+        log.info("开始统计 ");
         try {
             KafkaMonitorHandler.start(processedArgs);
         }catch (Exception e ){
