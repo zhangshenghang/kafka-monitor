@@ -26,7 +26,8 @@ jobs:
       - name: Build Docker image
         run: |
           cd kafka-monitor-application
-          docker build -t registry.cn-hangzhou.aliyuncs.com/jast-zsh/kafka-monitor:1.1 -f Dockerfile .
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          docker build -t registry.cn-hangzhou.aliyuncs.com/jast-zsh/kafka-monitor:${VERSION} --build-arg VERSION=${VERSION} -f Dockerfile .
 
       - name: Login to Aliyun Docker Registry
         uses: docker/login-action@v2
@@ -36,7 +37,7 @@ jobs:
           password: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
 
       - name: Push Docker image to Aliyun
-        run: docker push registry.cn-hangzhou.aliyuncs.com/jast-zsh/kafka-monitor:1.1
-
-      - name: Cleanup
-        run: docker rmi registry.cn-hangzhou.aliyuncs.com/jast-zsh/kafka-monitor:1.1
+        run: |
+          cd kafka-monitor-application
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          docker push registry.cn-hangzhou.aliyuncs.com/jast-zsh/kafka-monitor:${VERSION}
