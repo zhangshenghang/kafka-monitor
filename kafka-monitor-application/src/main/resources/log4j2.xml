@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <Properties>
+        <Property name="logFilePath">logs</Property>
+        <Property name="logFileName">kafka-monitor</Property>
+    </Properties>
+    <Appenders>
+
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+        <!-- 修改filePattern以每天生成一个文件，文件名为${logFileName}-%d{yyyy-MM-dd}.log.gz -->
+        <RollingRandomAccessFile name="File" fileName="${logFilePath}/${logFileName}.log"
+                                 filePattern="${logFilePath}/${logFileName}-%d{yyyy-MM-dd}.log.gz">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+            <!-- interval设置为1，表示每天滚动一次 -->
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+            </Policies>
+            <!-- 保留最近7天的日志文件 -->
+            <DefaultRolloverStrategy max="7">
+                <!-- 删除超过7天的日志文件 -->
+                <Delete basePath="${logFilePath}/" maxDepth="1">
+                    <IfFileName glob="${logFileName}-*.log.gz"/>
+                    <IfLastModified age="7d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingRandomAccessFile>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Root>
+        <!-- 禁止以org.apache.kafka开头的包打印info日志 -->
+        <Logger name="org.apache.kafka" level="warn">
+            <!-- 这里不包含AppenderRef，因为Logger会继承Root的AppenderRefs -->
+        </Logger>
+    </Loggers>
+</Configuration>
