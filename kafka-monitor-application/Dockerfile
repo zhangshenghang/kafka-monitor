@@ -4,7 +4,10 @@ FROM registry.cn-hangzhou.aliyuncs.com/jast-zsh/kafka-monitor:0.1
 MAINTAINER jast
 # 设置工作目录，即进入容器后默认目录
 ENV MYPATH /home/es
-#
+
+COPY target/kafka-monitor-application-1.0-SNAPSHOT.jar /home/es/kafka-monitor
+COPY target/kafka-monitor-application-1.0-SNAPSHOT.jar /home/es/
+
 WORKDIR $MYPATH
 USER es
 
