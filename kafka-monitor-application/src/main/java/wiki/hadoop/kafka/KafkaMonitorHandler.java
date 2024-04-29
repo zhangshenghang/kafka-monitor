@@ -193,7 +193,7 @@ public class KafkaMonitorHandler {
 
         // 获取当前时间
         long currentTimeMillis = System.currentTimeMillis();
-        String currentTime = DateUtil.date(currentTimeMillis).toString();
+        String currentTime = DateUtil.format(DateUtil.date(currentTimeMillis),"yyyy-MM-dd'T'HH:mm:ss.SSSZ");
         // 创建 KafkaMonitorClient 对象，用于获取 Kafka 监控信息
         KafkaMonitor kafkaAdminClient = new KafkaMonitorClient(KAFKA_BROKER_LIST);
 
@@ -326,12 +326,16 @@ public class KafkaMonitorHandler {
         }
         log.info("消费者组信息获取完成.");
 
-                // 执行批量请求
-        elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
-        // 关闭 Elasticsearch 客户端连接
-        elasticsearchClient.close();
-        // 关闭Kafka连接
-        kafkaAdminClient.close();
+        try {
+            // 执行批量请求
+            elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+            // 关闭 Elasticsearch 客户端连接
+            elasticsearchClient.close();
+            // 关闭Kafka连接
+            kafkaAdminClient.close();
+        }catch (Exception e ){
+            log.error("写入异常",e);
+        }
         log.info("本轮执行完成");
     }
 }
