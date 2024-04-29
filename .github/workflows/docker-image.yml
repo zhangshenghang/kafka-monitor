@@ -25,6 +25,7 @@ jobs:
 
       - name: Build Docker image
         run: |
+          docker system prune -f
           cd kafka-monitor-application
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           docker build -t registry.cn-hangzhou.aliyuncs.com/jast-tools/kafka-monitor:${VERSION} --build-arg VERSION=${VERSION} -f Dockerfile .
