@@ -13,7 +13,10 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
 import org.apache.kafka.common.TopicPartition;
+import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.bulk.BulkRequest;
+import org.elasticsearch.action.bulk.BulkResponse;
+import org.elasticsearch.client.Cancellable;
 import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
@@ -23,10 +26,13 @@ import wiki.hadoop.kafka.monitor.KafkaMonitorClient;
 import wiki.hadoop.kafka.util.ElasticSearchBulkWrite;
 import wiki.hadoop.kafka.util.UnitConvert;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * @author Jast
@@ -194,6 +200,7 @@ public class KafkaMonitorHandler {
         // 获取当前时间
         long currentTimeMillis = System.currentTimeMillis();
         String currentTime = DateUtil.format(DateUtil.date(currentTimeMillis),"yyyy-MM-dd'T'HH:mm:ss.SSSZ");
+                //String currentTime = DateUtil.date(currentTimeMillis).toString();
         // 创建 KafkaMonitorClient 对象，用于获取 Kafka 监控信息
         KafkaMonitor kafkaAdminClient = new KafkaMonitorClient(KAFKA_BROKER_LIST);
 
@@ -328,9 +335,31 @@ public class KafkaMonitorHandler {
 
         try {
             // 执行批量请求
-            elasticsearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
-            // 关闭 Elasticsearch 客户端连接
-            elasticsearchClient.close();
+           elasticsearchClient.bulkAsync(bulkRequest, RequestOptions.DEFAULT, new ActionListener<BulkResponse>() {
+               @Override
+               public void onResponse(BulkResponse bulkItemResponses) {
+                   // 关闭 Elasticsearch 客户端连接
+                   try {
+                       elasticsearchClient.close();
+                   } catch (IOException e) {
+                       log.error("",e);
+                   }
+               }
+
+               @Override
+                public void onFailure(Exception e) {
+                log.error("写入异常",e);
+                   // 关闭 Elasticsearch 客户端连接
+                   try {
+                       elasticsearchClient.close();
+                   } catch (IOException f) {
+                       log.error("",f);
+                   }
+                }
+            });
+
+
+
             // 关闭Kafka连接
             kafkaAdminClient.close();
         }catch (Exception e ){
