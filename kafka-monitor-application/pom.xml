@@ -9,7 +9,7 @@
         <version>1.0-SNAPSHOT</version>
     </parent>
 
-    <version>1.4</version>
+    <version>1.5</version>
 
     <artifactId>kafka-monitor-application</artifactId>
 

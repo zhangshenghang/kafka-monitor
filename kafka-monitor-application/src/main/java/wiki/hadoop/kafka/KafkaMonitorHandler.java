@@ -33,6 +33,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * @author Jast
@@ -207,39 +209,39 @@ public class KafkaMonitorHandler {
         // 获取 Kafka 集群中的所有 Topic 列表
         Set<String> topicList = kafkaAdminClient.topicList();
 
-        Map<String,Map<Integer, OffsetInfo>> topicMap = new HashMap<>();
+        //Map<String,Map<Integer, OffsetInfo>> topicMap = new HashMap<>();
 
         // 遍历每个 Topic，获取其最大和最小 Offset，并将其写入 Elasticsearch
-        for (String topic : topicList) {
-            // 获取该 Topic 的最大和最小 Offset
-            Map<TopicPartition, OffsetInfo> topicOffsetInfo =
-                    kafkaAdminClient.getTopicOffsetInfo(topic);
-            if(topicOffsetInfo==null){
-                log.error("当前Topic获取失败:"+topic);
-                continue;
-            }
-            HashMap<Integer, OffsetInfo> objectObjectHashMap = new HashMap<>();
-            topicOffsetInfo.forEach(
-                    (x, y) -> {
-                        JSONObject offset = new JSONObject();
-                        offset.put("topic_partition", x.partition());
-                        offset.put("earliest", y.getEarliestOffset());
-                        offset.put("latest", y.getLatestOffset());
-                        OffsetInfo offsetInfo = new OffsetInfo(y.getEarliestOffset(), y.getLatestOffset());
-                        objectObjectHashMap.put(x.partition(),offsetInfo);
-                    });
-            topicMap.put(topic,objectObjectHashMap);
-
-            // 构建一个包含当前 Topic 最大和最小 Offset 的 JSON 对象
-            JSONObject kafkaTopicOffsetInfo =
-                    buildKafkaTopicOffsetInfo(topic, topicOffsetInfo, currentTime);
-            // 将当前 Topic 的最大和最小 Offset 写入 Elasticsearch
-            ElasticSearchBulkWrite.upsertDocument(
-                    KAFKA_TOPIC_INDEX,
-                    topic + "_" + currentTimeMillis,
-                    kafkaTopicOffsetInfo,
-                    bulkRequest);
-        }
+        //for (String topic : topicList) {
+        //    // 获取该 Topic 的最大和最小 Offset
+        //    Map<TopicPartition, OffsetInfo> topicOffsetInfo =
+        //            kafkaAdminClient.getTopicOffsetInfo(topic);
+        //    if(topicOffsetInfo==null){
+        //        log.error("当前Topic获取失败:"+topic);
+        //        continue;
+        //    }
+        //    HashMap<Integer, OffsetInfo> objectObjectHashMap = new HashMap<>();
+        //    topicOffsetInfo.forEach(
+        //            (x, y) -> {
+        //                JSONObject offset = new JSONObject();
+        //                offset.put("topic_partition", x.partition());
+        //                offset.put("earliest", y.getEarliestOffset());
+        //                offset.put("latest", y.getLatestOffset());
+        //                OffsetInfo offsetInfo = new OffsetInfo(y.getEarliestOffset(), y.getLatestOffset());
+        //                objectObjectHashMap.put(x.partition(),offsetInfo);
+        //            });
+        //    topicMap.put(topic,objectObjectHashMap);
+        //
+        //    // 构建一个包含当前 Topic 最大和最小 Offset 的 JSON 对象
+        //    JSONObject kafkaTopicOffsetInfo =
+        //            buildKafkaTopicOffsetInfo(topic, topicOffsetInfo, currentTime);
+        //    // 将当前 Topic 的最大和最小 Offset 写入 Elasticsearch
+        //    ElasticSearchBulkWrite.upsertDocument(
+        //            KAFKA_TOPIC_INDEX,
+        //            topic + "_" + currentTimeMillis,
+        //            kafkaTopicOffsetInfo,
+        //            bulkRequest);
+        //}
         // 获取Topic大小
         Map<String, Long> topicDisk = kafkaAdminClient.getTopicDisk();
         log.info("开始获取每个Topic占用磁盘空间");
@@ -250,7 +252,7 @@ public class KafkaMonitorHandler {
                             long diskUsage = entry.getValue();
                             JSONObject kafkaTopicDiskInfo =
                                     buildKafkaTopicDiskInfo(diskUsage, currentTime);
-
+                            kafkaTopicDiskInfo.put("topic",topic);
                             ElasticSearchBulkWrite.upsertDocument(
                                     KAFKA_TOPIC_INDEX,
                                     topic + "_" + currentTimeMillis,
@@ -306,29 +308,32 @@ public class KafkaMonitorHandler {
                 String topic = stringObjectEntry.getKey();
                 // 获取 partition 的消费位移信息
                 JSONObject value = (JSONObject) stringObjectEntry.getValue();
-
+                Map<String, Map<Integer, OffsetInfo>> topicMap = extracted(topic, kafkaAdminClient);
+                if(topicMap==null){
+                    log.warn("Topic:{},获取最大最小OffSet失败,跳过本次统计",topic);
+                    continue;
+                }
                 // 遍历每个 partition 的消费位移信息，并将其添加到 jsonArray 中
                 for (String partition : value.keySet()) {
-                    JSONObject jsonObject2 = new JSONObject();
-                    jsonObject2.put("partition", partition);
-                    jsonObject2.put("offset", value.getLong(partition));
-                    jsonObject2.put("latest", topicMap.get(topic) ==null?-1:topicMap.get(topic).get(Integer.parseInt(partition)).getLatestOffset());
-                    jsonObject2.put("earliest", topicMap.get(topic)==null?-1:topicMap.get(topic).get(Integer.parseInt(partition)).getEarliestOffset());
-                    jsonArray.add(jsonObject2);
+                    esJsonObject.put("partition", partition);
+                    esJsonObject.put("offset", value.getLong(partition));
+                    esJsonObject.put("latest", topicMap.get(topic) ==null?-1:topicMap.get(topic).get(Integer.parseInt(partition)).getLatestOffset());
+                    esJsonObject.put("earliest", topicMap.get(topic)==null?-1:topicMap.get(topic).get(Integer.parseInt(partition)).getEarliestOffset());
+                    // 将消费位移信息写入 Elasticsearch
+                    esJsonObject.put("topic", topic);
+                    esJsonObject.put("consumer_group", groupId);
+                    esJsonObject.put("consumer_offset", jsonArray);
+                    esJsonObject.put("insert_time", currentTime);
+
+                    // 将 Elasticsearch 文档写入 Elasticsearch 中
+                    ElasticSearchBulkWrite.upsertDocument(
+                            KAFKA_GROUP_INDEX,
+                            topic + "_" + groupId +"_"+partition+ "_" + currentTimeMillis,
+                            esJsonObject,
+                            bulkRequest);
                 }
 
-                // 将消费位移信息写入 Elasticsearch
-                esJsonObject.put("topic", topic);
-                esJsonObject.put("consumer_group", groupId);
-                esJsonObject.put("consumer_offset", jsonArray);
-                esJsonObject.put("insert_time", currentTime);
 
-                // 将 Elasticsearch 文档写入 Elasticsearch 中
-                ElasticSearchBulkWrite.upsertDocument(
-                        KAFKA_GROUP_INDEX,
-                        topic + "_" + groupId + "_" + currentTimeMillis,
-                        esJsonObject,
-                        bulkRequest);
             }
         }
         log.info("消费者组信息获取完成.");
@@ -366,5 +371,32 @@ public class KafkaMonitorHandler {
             log.error("写入异常",e);
         }
         log.info("本轮执行完成");
+    }
+
+    private static Map<String,Map<Integer, OffsetInfo>> extracted(String topic, KafkaMonitor kafkaAdminClient) throws ExecutionException, InterruptedException, TimeoutException {
+        Map<String,Map<Integer, OffsetInfo>> topicMap = new HashMap<>();
+        // 获取该 Topic 的最大和最小 Offset
+        Map<TopicPartition, OffsetInfo> topicOffsetInfo =
+                kafkaAdminClient.getTopicOffsetInfo(topic);
+        if(topicOffsetInfo==null){
+            log.error("当前Topic获取失败:"+ topic);
+            return null;
+        }
+        HashMap<Integer, OffsetInfo> objectObjectHashMap = new HashMap<>();
+        topicOffsetInfo.forEach(
+                (x, y) -> {
+                    JSONObject offset = new JSONObject();
+                    offset.put("topic_partition", x.partition());
+                    offset.put("earliest", y.getEarliestOffset());
+                    offset.put("latest", y.getLatestOffset());
+                    OffsetInfo offsetInfo = new OffsetInfo(y.getEarliestOffset(), y.getLatestOffset());
+                    objectObjectHashMap.put(x.partition(),offsetInfo);
+                });
+        topicMap.put(topic,objectObjectHashMap);
+
+        // 构建一个包含当前 Topic 最大和最小 Offset 的 JSON 对象
+        //JSONObject kafkaTopicOffsetInfo =
+        //        buildKafkaTopicOffsetInfo(topic, topicOffsetInfo, currentTime);
+        return topicMap;
     }
 }
