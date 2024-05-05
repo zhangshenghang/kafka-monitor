@@ -1,6 +1,7 @@
 package wiki.hadoop.kafka;
 
 import lombok.extern.slf4j.Slf4j;
+import wiki.hadoop.kafka.util.ElasticSearchClean;
 import wiki.hadoop.kafka.util.ParameterTool;
 
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -49,6 +50,16 @@ public class KafkaMonitorApplication implements Runnable {
     public static void main(String[] args) {
         ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
         executor.scheduleAtFixedRate(new KafkaMonitorApplication(args), 0, 1, TimeUnit.MINUTES);
+        executor.scheduleAtFixedRate(new ElasticSearchClean(ParameterTool.get("elasticsearch_host"),
+                Integer.parseInt(ParameterTool.get("elasticsearch_port")),
+                "kafka-topic",
+                ParameterTool.get("elasticsearch_username"),
+                ParameterTool.get("elasticsearch_password"),7), 0, 1, TimeUnit.DAYS);
+        executor.scheduleAtFixedRate(new ElasticSearchClean(ParameterTool.get("elasticsearch_host"),
+                Integer.parseInt(ParameterTool.get("elasticsearch_port")),
+                "kafka-group",
+                ParameterTool.get("elasticsearch_username"),
+                ParameterTool.get("elasticsearch_password"),7), 0, 1, TimeUnit.DAYS);
 
         // 注册JVM关闭钩子，用于优雅地关闭线程池
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
