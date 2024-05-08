@@ -42,3 +42,4 @@ jobs:
           cd kafka-monitor-application
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           docker push registry.cn-hangzhou.aliyuncs.com/jast-tools/kafka-monitor:${VERSION}
+          docker push registry.cn-hangzhou.aliyuncs.com/jast-tools/kafka-monitor:latest
